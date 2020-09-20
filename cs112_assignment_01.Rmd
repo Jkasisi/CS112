@@ -1,0 +1,378 @@
+---
+title: "CS112 ASSIGNMENT 1"
+author: "JACKLINE KASISI"
+date: "20/9/2020"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(tinytex)
+library(formattable)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+For this assignment, you will analyse UN Peacekeeping data.
+
+As you may already know, at any given time, the UN is involved with many peacekeeping missions around the world. 
+Almost all member-states contribute personnel to those missions. 
+There are five types of personnel: experts on mission, troops, staff officers, individual police, and formed police units. 
+
+\textbf{Step 1:}
+Load dataset 
+```{r}
+data_1 <- read_csv("https://tinyurl.com/UNpckpdata")
+head(data_1)
+NROW(data_1)
+```
+
+\textbf{Step 2:}
+Check each column for missing values and/or NAs and drop the observations that have them.
+HINT: Use the function na.omit after dealing with all the blanks by setting them to NAs. 
+
+```{r}
+#Find missing entries and Replace them by NAs
+
+is.na(data_1) <- data_1 == ""
+
+#Omit the NAs
+
+UNpk_data<-na.omit(data_1)
+NROW(UNpk_data)
+
+
+```
+
+\vspace*{0.5in}
+
+\textbf{Step 3:}
+Change the object class of the column containing the dates to object of “class” = Date.
+HINT: Use the function as.Date(foo_new$Last_Reporting_Date,"%d/%m/%Y")
+   https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/as.Date
+
+```{r}
+#Coarse the character dates into class "Date"
+date <- as.Date(UNpk_data$Last_Reporting_Date, format="%d/%m/%Y")
+
+#Delete the character dates colum and replace them with dates with correct class 
+UNpk_data<-cbind(date, UNpk_data[,-9])
+head(UNpk_data)
+class(UNpk_data$date)
+```
+\newpage
+
+\textbf{Step 4}
+
+Take a look at this infographic from the UN that outlines its goals to make its personnel more diverse:
+   https://peacekeeping.un.org/sites/default/files/uniformed_women_infographic_150520_updated.pdf
+
+It shows the percentage of women each personnel type should include by 2028 across all missions. 
+Take a look at the % goal in the barplot entitled ‘WOMEN SERVING IN FORMED POLICE UNITS’ — 20%+ across all missions by 2028. 
+
+Was that goal achieved for the latest month reported (July 2020)? 
+
+```{r}
+#Percentage of ‘women serving in formed police units’ for (July 2020)
+#data set for only Personel in formed police
+N_formedpolice <- which(UNpk_data$Personnel_Type != "Formed Police Units" )
+formedpolice <- UNpk_data[-N_formedpolice, ]
+
+#dataset for formed police in July 2020
+july_formedpolice <- filter(formedpolice, date >= as.Date("2020-07-01"))
+head(july_formedpolice)
+
+#total of male and female formed police
+females <- sum(july_formedpolice$Female_Personnel)
+males <- sum(july_formedpolice$Male_Personnel)
+
+#percentage of female in formed police in July 2020
+july_female<- females/(females+males)*100
+july_female
+
+
+
+```
+For July 2020, only 10.93% of the Formed Police unit were females. Given that the UN's goal is have at least 20% of the group as females, they failed to reach their goal.
+
+\newpage
+\textbf{Step 5}
+
+To drive the point home, replicate the bar plot from the previous step (the one entitled 'WOMEN SERVING IN FORMED POLICE UNITS'),
+but this time include the July 2020 percentage as a new bar on the chart. 
+Do not worry too much about making the plots look the same aesthetically. 
+Hint: Use function ggplot2 to build the bar plot.
+   http://www.sthda.com/english/wiki/ggplot2-barplots-quick-start-guide-r-software-and-data-visualization
+
+```{r}
+#select data from formed police data from 2017 to 2020
+
+#Percetage of women in formed police for the year 2017
+formedpolice_2017 <- filter(UNpk_data, date >= as.Date("2017-01-01") & date <= 
+                              as.Date("2017-12-31") & Personnel_Type == "Formed Police Units")
+Women_2017 <- sum(formedpolice_2017$Female_Personnel)/(sum(formedpolice_2017$Male_Personnel) + 
+                                                         sum(formedpolice_2017$Female_Personnel))
+Women_2017
+
+
+#Percetage of women in formed police for the year 2018
+formedpolice_2018 <- filter(UNpk_data, date >= as.Date("2018-01-01") & date <= 
+                              as.Date("2018-12-31") & Personnel_Type == "Formed Police Units")
+Women_2018 <- sum(formedpolice_2018$Female_Personnel)/(sum(formedpolice_2018$Male_Personnel) + 
+                                                         sum(formedpolice_2018$Female_Personnel))
+Women_2018
+
+
+
+#Percetage of women in formed police for the year 2019
+formedpolice_2019 <- filter(UNpk_data, date >= as.Date("2019-01-01") & date <= 
+                              as.Date("2019-12-31") & Personnel_Type == "Formed Police Units")
+Women_2019 <- sum(formedpolice_2019$Female_Personnel)/(sum(formedpolice_2019$Male_Personnel) + 
+                                                         sum(formedpolice_2019$Female_Personnel))
+Women_2019
+
+
+#Percetage of women in formed police for the year 2020
+formedpolice_2020 <- filter(UNpk_data, date >= as.Date("2020-01-01") 
+                            & Personnel_Type == "Formed Police Units")
+Women_2020 <- sum(formedpolice_2020$Female_Personnel)/(sum(formedpolice_2020$Male_Personnel) + 
+                                                         sum(formedpolice_2020$Female_Personnel))
+Women_2020
+
+Target <- 0.2
+july_2020 <- july_female/100
+
+#forming a dataframe with the percentage of all women in Fomred police from 2017 to 2020,
+#and the expected target
+july_2020 <- july_female/100
+Women_Percents <- c(Women_2017,Women_2018, Women_2019, Women_2020,july_2020,Target)
+Women_Percents<- percent(Women_Percents)
+Time <-c(2017,2018,2019,2020,"July 2020","Target")
+w <- data.frame(Time, Women_Percents)
+w
+#creating a bar plot of the percent of women in formed police from 2017 to 2020
+ggplot(data=w, aes(x=Time, y=Women_Percents)) +
+  geom_bar(stat="identity", fill="steelblue") +
+  geom_text(aes(label=Women_Percents), vjust=1.6, color="white", size=3.5) +
+  labs(title = "Percentage of Women in UN Formed police", y="Formed women Percent") +
+  theme_minimal()
+  
+```
+From the bar plot, The percentage of women in formed police has been increasing steadily from 2017, 6.46% , up to 10.91% in 2020. Although the UN has made alot of progress in increasing women participation in the formed police category, they are still very far from their target of 20%. They have 8 years left to reach that target which means that they have to grow by at least 1.13% every year to achieve their tagret. 
+
+\newpage
+\textbf{Step 6}
+
+Now let's focus on a subset of countries - Minerva's (usual) rotation: the US, South Korea, India, Germany, Argentina, and the UK. 
+(The UN does not differentiate between Taiwan and China in the dataset and so will not be looking at it.) 
+
+Here are the ISO Alpha 3 Codes for each of the countries: 
+
+\begin{center}
+\begin{tabular}{|l|c|r|} % 3 cols (left, ctr, right); vert. lines
+\hline % draw horizontal line
+Country & ISO Alpha 3 Code \\
+\hline
+The US & USA \\
+South Korea & KOR \\
+India & IND \\
+Germany & DEU  \\
+Argentina & ARG \\
+The UK & GBR \\
+\hline
+\end{tabular}
+\end{center}
+
+
+```{r}
+#dataset with only Minerva rortation countries
+rotation_Countries <- filter(UNpk_data, ISOCode3 == "USA" | ISOCode3 == "KOR" |
+                               ISOCode3 == "IND" | ISOCode3 == "DEU" |
+                               ISOCode3 == "ARG" | ISOCode3 == "GBR")
+
+#geeting missions without whitespace to avoid duplicate counting
+Missions <- trimws(rotation_Countries$Mission_Acronym, which = c("both", "left", "right"),
+                   whitespace = "[ \t\r\n]")
+rotation_Countries<- cbind(rotation_Countries[,-6], Missions)
+
+head(rotation_Countries)
+
+```
+\vspace*{0.5in}
+Write a function that takes as input a country's ISO code and returns (in any nice-looking format):
+(a) a list of all the unique missions that the country has sent personnel to for the whole timeline of the dataset 
+(b) the number of unique missions that the country has sent personnel to for the whole timeline of the dataset 
+
+```{r}
+func <- function(isocode){
+  x <- rotation_Countries[rotation_Countries$ISOCode3 == isocode, ]
+  # print out the unique missions
+  print(unique(x$Missions))
+  # print out the number of unique missions
+  print(length(unique(x$Missions)))
+
+}
+
+USA_Missions<- func("USA")
+Korea_Missions <- func("KOR")
+India_Missions <- func("IND")
+Argentina_Missions <- func("ARG")
+Germany_Missions <- func("DEU")
+UK_Missions <- func("GBR")
+
+
+rotation_Countries_mission <- data.frame(USA_Missions, Korea_Missions, India_Missions, 
+                                    Argentina_Missions, Germany_Missions, UK_Missions)
+rotation_Countries_mission
+```
+India has the highest number of mission participated in(26 missions), while Korea has the least missions(17). We would expect a big country like the US with alot of human resources and capital resources to have participated in the most number of missions. Even though the unique number of missions a country has participated in is not a composite measure of their commitment to peace keeping, it does provide an intial window. Maybe if we look at the average number of troops each country contributes per unique mission we might get a better metric of judgement. 
+
+\vspace*{0.5in}
+\textbf{Step 7}
+
+Now, let's briefly zoom in on a specific mission: The UN Multidimensional Integrated Stabilization Mission in Mali (MINUSMA), 
+which has been called one of the most dangerous ones.
+   https://www.washingtonpost.com/sf/world/2017/02/17/the-worlds-deadliest-u-n-peacekeeping-mission/
+
+Obtain a dataframe that contains the total number of personnel, both male and female, 
+stationed at MINUSMA during its whole duration, from all countries across all personnel types. 
+```{r}
+#create a dataset that contains data for the MINUSMA mission only
+MINUSMA <- filter(UNpk_data, Mission_Acronym=="MINUSMA")
+
+#create a column for total number of personel at MINUSMA, which is sum of male and female
+P<- data.frame(MINUSMA$Female_Personnel, MINUSMA$Male_Personnel)
+total_personel <- rowSums(P)
+
+#Add a column containing data of the total personel to the MINUSMA dataset  personel colum
+MINUSMA_1 <- cbind(MINUSMA, total_personel)
+head(MINUSMA_1)
+
+#create a new dataframe with total number of personel for each day the mission was running
+Personel <- data.frame(aggregate(total_personel ~ date , MINUSMA_1,sum))
+head(Personel)
+```
+
+Once you get that dataframe, answer the following: 
+(a) Across time, how much total personnel was stationed there on average?
+```{r}
+mean(Personel$total_personel)
+
+```
+(a) What was the median? 
+```{r}
+median(Personel$total_personel)
+```
+(b) The 25th and 75th quartile? 
+```{r}
+quantile(Personel$total_personel, 0.25)
+quantile(Personel$total_personel, 0.75)
+```
+(c) When was the lowest point and how many troops were stationed there then? 
+```{r}
+i <- Personel[which((Personel$total_personel) == min(Personel$total_personel)),]
+i
+```
+
+(d) When was the highest and how many? 
+```{r}
+m <- Personel[(Personel$total_personel) == max(Personel$total_personel),]
+m
+```
+\vspace*{0.5in}
+\textbf{Totally Optional Extra Credit}
+
+Finally, let's see if having a higher GDP per capita can predict the amount of personnel each country sends across all missions. 
+Use this dataset from Our World in Data to obtain GDP per capita levels for all countries for 2017: 
+   https://tinyurl.com/gdpcapitaourworldindata. 
+Use the number of personnel each country contributed across all missions in Dec 2017. 
+
+You have to create a new data frame that contains for each country: 
+1) the total number of personnel (both male and female) contributed across all missions in Dec 2017 - ##Modified to include data for the whole of 2017 and not just DEC 2017 data. This revision was made because the mean of personel for the whole year more representative
+
+```{r}
+#UN peace keeping data for 2017
+UNpk_2017 <- filter(UNpk_data, date >= as.Date("2017-01-01") & date <= as.Date("2017-12-31"))
+
+#get a colum with total number of female and male personel
+K<- data.frame(UNpk_2017$Female_Personnel, UNpk_2017$Male_Personnel)
+total_personel_1 <- rowSums(K)
+
+#Include the column with the total number of female and male personel to UN peace keeping data for 2017
+UNpk_2017 <- cbind(UNpk_2017, total_personel_1)
+head(UNpk_2017)
+
+#create a new dataframe with number of personel each day
+Personel_2017 <- data.frame(aggregate(total_personel_1 ~ date + ISOCode3, UNpk_2017,sum))
+head(Personel_2017)
+
+#create a new dataframe with the average number of personel each country in the year 2017
+Average_Personel_2017 <- data.frame(aggregate(total_personel_1 ~ ISOCode3, Personel_2017,mean))
+head(Average_Personel_2017)
+
+
+```
+\vspace*{0.5in}
+
+2) The GDP per capita in 2017
+
+```{r}
+#step eight, extra credit question 
+#Obtain GDP data of countries up to 2017
+gdp_data <- read.csv("https://tinyurl.com/gdpcapitaourworldindata" ,header=T, na.strings=c("","."))
+#Omit missing entries
+gdp_per_capita_worldbank<- na.omit(gdp_data)
+head(gdp_per_capita_worldbank)
+#Get GDP data for 2017 only
+GDP_2017 <- filter(gdp_per_capita_worldbank, Year==2017)
+#Omit the NAs in GDP for 2017
+is.na(GDP_2017) <- GDP_2017 == ""
+GDP_2017_1<-na.omit(GDP_2017)
+#Rename the Code column in the GDP to ISOCode3 for merging purpose later
+GDP_2017_1 <- rename(GDP_2017_1,c('ISOCode3'='Code'))
+#rename GDP colum to GDP for simplicity
+GDP_2017_1 <- rename(GDP_2017_1,c('GDP'='GDP.per.capita..int......constant.2011.international...'))
+
+head(GDP_2017_1)
+
+#new dataset for regression that merges the data on the average number of personel in 2017 with GDP data 
+GDP_personel <- merge(GDP_2017_1,Average_Personel_2017, by="ISOCode3")
+head(GDP_personel)
+```
+HINT: See this thread for tips on conditionally merging columns of two dataframes:
+   https://intellipaat.com/community/31833/r-add-a-new-column-to-a-dataframe-using-matching-values-of-another-dataframe
+After that, use that dafaframe to run a simple linear regression using the lm function, 
+prediccting the number of personnel given GDP per capita. 
+Report the point estimate and related p-value, and interpret the result in a sentence or two. 
+
+```{r}
+#run a linear regression to predict if GDP has an effect on the average number of personel each country sends for UN missions
+lm1 <- lm(total_personel_1 ~ GDP, data = GDP_personel)
+summary(lm1)
+```
+
+After running a linear regression that takes the for 
+f=B0 + B1.X
+The intercept(B0) is 1099 Personel when the GDP is zero. 
+The slope(B1) is -0.02002, which mean that for an increase in a dollar of the GDP of a country, their total perssonel reduce by 0.02002. Therefore, there is an inverse relationship between GDP and the total personel a country contributes towards UN peace keeing missions. 
+The p-value is 0.006163, which is a very small number less than 0.05 the threshold for statistically significant results. Therefore we reject the null hypothesis because there is less than a 0.6163% that the predicted point estimates are not equal to the real point estimates. 
+
+
+
+\newpage 
+\textbf{dataviz:} I use the data provided to create a bar plot to show the trend of the women in formed police over time. I use the resulting visualizion to analyse what exactly the level of women formed police means for the UN goals of equility in their peace keeping missions. 
+
+\textbf{professionalism:} I use Latex for the first time in my life to present my work in a profeesional manner that is both aesthetically pleasing and very appropriate for my target audience. I want my professor to be able to see what steps I took in my work, and the resulst from my code. 
+
+\textbf{algorithms:} The optional step at the bottom really challenged me to use this HC. The problem was simple but buidling up the data to a point where I can be able to perfom the simple linear model was the big challenge. I had to come up with clear defined steps on how to solve the problem, write a code for it, and execute to get desired results of the point estimates for the regresisonal model. I show clear steps of data cleaning , data filtering , data merging, appropriate calculations of sum and mean, and finally the linear regesiion
+
+\textbf{cs112-decisiondata:} This assignments leaverages data from UN peace keeping mission to get insights on how well they are doing, where they need to improve and to see if there is any correlation between GDP and total number of prsonel coutries contribute to peace keeping missions 
+
+\textbf{cs112-decisionbrief:} I use data viz in my work to simplify the findings that UN has not met their target of having at least 20% women in formed police. This visualization is effective in the sense that it gives tha audince the a picture of current state women participation oevr time in as simplified way. Also, in the last section about linear regression, I simplify the findings ina way that someone who has little knowledge on the technical details of linear regression can understand. 
+
+
+
