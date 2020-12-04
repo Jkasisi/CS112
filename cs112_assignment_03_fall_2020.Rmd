@@ -1,0 +1,585 @@
+---
+title: "CS112 Assignment 3, Fall 2020"
+author: "Jackline Kasisi"
+date: "11/01/2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+# Don't change this part of the document
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, 
+                      message=FALSE, fig.width=6, fig.align="center")
+# load the necessary packages
+# If you don't have the following packages installed,
+# please install them first. But don't include the installation
+# code here because every time you knit this document they'll 
+# be reinstalled which is not necessary!
+library(Matching)
+library(MatchIt)
+library(cobalt)
+library(knitr)
+library(janitor)
+library(tidyverse)
+library(gridExtra)
+# we need to set the seed of R's random number generator, 
+# in order to produce comparable results 
+set.seed(928)
+```
+
+# A few important notes
+
+**Option 1 for submitting your assignment**: *This method is actually preferred. This is an RMarkdown document. Did you know you can open this document in RStudio, edit it by adding your answers and code, and then knit it to a pdf? To submit your answers to this assignment, simply knit this file as a pdf and submit it as a pdf on Forum. All of your code must be included in the resulting pdf file, i.e., don't set echo = FALSE in any of your code chunks. To learn more about RMarkdown, watch the videos from session 1 and session 2 of the CS112B optional class. [This](https://rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf) is also a cheat sheet for using Rmarkdown. If you have questions about RMarkdown, please post them on Perusall. Try knitting this document in your RStudio. You should be able to get a pdf file. At any step, you can try knitting the document and recreate a pdf. If you get error, you might have incomplete code.*
+
+**Option 2 for submitting your assignment**: *If you are not comfortable with RMarkdown, you can also choose the Google Doc version of this assignment, make a copy of it and edit the Google doc (include your code, figures, results, and explanations) and at the end download your Google Doc as a pdf and submit the pdf file.*
+
+**Note**: *Either way (if you use Rmd and knit as pdf OR if you use Google Doc and download as pdf) you should make sure you put your name on top of the document.*
+
+**Note**: *The first time you run this document you may get error that some packages don't exist. If you don't have the packages listed on top of this document, install them first and you won't get those errors.*
+
+**Note**: *If you work with others or get help from others on the assignment, please provide the names of your partners at the top of this document. Working together is fine, but all must do and understand their own work and have to mention the collaboration on top of this document.*
+
+**Note**: *Don't change seed in the document. The function `set.seed()` has already been set at the beginning of this document to 928. Changing the see again to a different number will make your results not replicable.*
+
+
+## QUESTION 1: Data Generating Example
+
+The following code, creates a toy dataset with a treatment variable, $D$, an outcome variable, $Y$, and other variables $V_1$ to $V_4$. 
+
+```{r}
+n = 1000
+## Generating a random data set here
+#Syntax for the normal distribution here is rnorm(sample size, mean, SD)
+V1 = rnorm(n, 45, 10)
+#getting a binary variable
+V2 = sample(c(1,0), 
+             replace = TRUE, 
+             size = n,
+             prob = c(.4,.6))
+V3 = rnorm(n, V1/10, 1)
+V4 = rnorm(n, 0, 1)
+D  = as.numeric(pnorm(rnorm(n, .01*V1 + .8*V2 + 0.3*V3 + V4, 1), .45 + .32 + .3*4.5, 1) > .5)
+Y  = rnorm(n, .8*D - 0.45*V2 - .4*V3 + 2, .2)
+# combining everything in a data frame
+df = data.frame(V1, V2, V3, V4, D, Y)
+```
+
+#### STEP 1
+
+From the variables $V_1$, $V_2$, $V_3$, and $V_4$, which one(s) are not confounding variable(s) (covariates that causes confounding)? Remember, a rule of thumb (although not a perfect rule) is that the variable is correlated with both the treatment variable and the outcome variable. Explain!
+
+V2 and V4
+
+V2 and V4 are not confounding varibles because they are only correlated with the treatment varible but not the outcome varibles. This can be seen in the data generating process, as V2 and V4 are not included in the generation of Y(oucome varible), but only used in the generation of D(treatment varible)
+
+#### STEP 2
+
+Can you figure out the true treatment effect by looking at the data generating process above?
+
+You can try to estimate the treatment effect by looking at the data generating process. The outcome varible Y has a mean of .8*D - 0.45*V2 - .4*V3 + 2 , where D is the treatment varible. since D can only be 1 or 0, pluging these numbers and calculating the diffrence would give us the true treatment effect. (.8*1 - 0.45*V2 - .4*V3 + 2) - (.8*0 - 0.45*V2 - .4*V3 + 2) = 0.8. This would imply that Our avrage treament effect would be 0.8. However, 0.8 is not our true avrage treatment effect because there is randomness in the the almost all the V varibles, so the tretement effect will be greater or smaller than 0.8.
+
+
+#### STEP 3
+
+Plot the outcome variable against the treatment variable. Make sure you label your axes. Do you see a trend?
+
+From the plot, the outcome varobles either lie on the 0 or 1 of D(treatment variable). The upper ouliers of outcomes on 1 are relatively bigger that those on 0 treatment varible. The lower outliers on the 0 treatment varibles are worse off compared to those on 1. 
+
+```{r}
+# Your code here
+plot(D,Y, main = "Plot of outcome varible Y and treatment varible D")
+```
+
+#### STEP 4
+
+Are the variables $V_1$, $V_2$, $V_3$, and $V_4$ balanced across the treatment and control groups? You can use any R function from any package to check this (for instance, you can check the cobalt package). Make sure you check all variables. 
+
+**Note**: *This is optional but you can use the `gridExtra` package and its `grid.arrange()` function to put all the 4 graphs in one 2 x 2 graph. Read more about the package and how to use it here: https://cran.r-project.org/web/packages/egg/vignettes/Ecosystem.html. Set `nrow = 2`.*
+
+```{r}
+# Your code here
+
+bal.plot(df, 
+         treat = df$D, 
+         var.name = "V1",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+
+
+bal.plot(df, 
+         treat = df$D, 
+         var.name = "V2",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+
+bal.plot(df, 
+         treat = df$D, 
+         var.name = "V3",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+
+bal.plot(df, 
+         treat = df$D, 
+         var.name = "V4",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+
+```
+
+```{r}
+#balance test for V1
+V1_treated <- df$V1[df$D == 1]
+#unique(age_treated)
+V1_control <- df$V1[df$D == 0]
+
+V1_bal <- t.test(V1_treated, V1_control)
+V1_bal
+
+
+#balance test for V2
+V2_treated <- df$V2[df$D == 1]
+#unique(age_treated)
+V2_control <- df$V2[df$D == 0]
+
+V2_bal <- t.test(V2_treated, V2_control)
+V2_bal
+
+#balance test for V3
+V3_treated <- df$V3[df$D == 1]
+#unique(age_treated)
+V3_control <- df$V3[df$D == 0]
+
+V3_bal <- t.test(V3_treated, V3_control)
+V3_bal
+
+#balance test for V4
+V4_treated <- df$V4[df$D == 1]
+#unique(age_treated)
+V4_control <- df$V4[df$D == 0]
+
+V4_bal <- t.test(V4_treated, V4_control)
+V4_bal
+```
+
+#### STEP 5
+
+Write code that would simply calculate the Prima Facie treatment effect in the data above. What's the Prima Facie treatment effect? Note that the outcome variable is binary.
+
+```{r}
+# Your code here
+prima_facie <- mean(df$Y[df$D == 1]) - mean(df$Y[df$D == 0])
+prima_facie
+```
+
+
+#### STEP 6
+
+Explain why the Prima Facie effect is not the true average causal effect from Step 2.
+
+The prima Facie treatment effect is not the true average treatment effect because it only reprepresents the treatment effect for the treated units, and does not consider conterfactuals.
+
+
+#### STEP 7
+
+We can use matching to create a better balance of the covariates. Use a propensity score model that includes all the variables $V_1$, $V_2$, $V_3$, and $V_4$.
+
+```{r}
+# Your code here
+
+glm_prop <- glm(D ~ V1 + V2 + V3 + V4, data = df, family = binomial())
+
+X  <- glm_prop$fitted
+Y1 <- df$Y
+# ## #Y 
+Tr  <- df$D
+rr  <- Match(Tr=Tr, X=X, M=1)
+
+```
+
+
+#### STEP 8
+
+Check the balance of the covariates. Do you see any improvements after matching?
+
+Yes, the balance impoves for all covariates as the p values all increase. However, only V1 and V3 have P values greater than 0.05, while those of V2 and V$ remain below 0.05. This means that there is significant impovement in balance in V1 and V3 only. There is still imbalance in V2 and V4 even after matching. 
+```{r}
+mb  <- MatchBalance(D ~ V1 + V2 + V3 + V4, data = df, match.out=rr, nboots=100)
+
+
+```
+
+
+#### STEP 9
+
+What is the treatment effect after matching? Is this surprising given your answer to Step 2. Is the treatment effect found in this Step closer to the treatment effect in Step 2 than the treatment effect before matching?
+
+After matching, the treatment effect is 0.73683 , compared to a treatment effect of 0.3423726 before matching. It is not surprising, because after matching, we try to to match based on the probability of getting treatment. Given our method of data genaration, varibles that have similar propensity scores, or close, are also likely to have the same output. In the end we have a treatment effect of 0.73683. 
+
+```{r}
+rr1  <- Match(Tr=Tr, Y=Y1, X=X, M=1)
+summary(rr1)
+
+```
+
+
+## QUESTION 2: Daughters
+
+Read Section 5 (which is only about 1 page long!) of Iacus, King, Porro (2011), Multivariate Matching Methods That Are Monotonic Imbalance Bounding, JASA, V 106, N. 493, available here: https://gking.harvard.edu/files/gking/files/cem_jasa.pdf. Don't worry about the "CEM" elements. Focus on the "daughters" case study.
+
+Data for this case study is available in "doughters" below.
+
+```{r}
+daughters = read.csv("http://bit.ly/daughters_data") %>% 
+  clean_names()
+head(daughters)
+
+
+
+```
+
+#### STEP 1
+
+Before doing any matching, run a regression, with the outcome variable being `nowtot`, the treatment variable being `hasgirls`, and the independent vars mentioned below:
+- dems, 
+- repubs,
+- christian,
+- age,
+- srvlng,
+- demvote
+
+Show the regression specification. Use the regression to estimate a treatment effect and confidence interval. 
+
+```{r}
+# regression
+
+glm2 <- glm(nowtot ~ hasgirls + dems + repubs + christian + age + srvlng + demvote, data = daughters)
+summary(glm2)
+
+```
+
+Check the balance of this not-matched data set using any method of your choice (balance tables, balance plots, love plots, etc).
+```{r}
+
+m.out <- matchit(hasgirls ~ dems + repubs + christian + age + srvlng + demvote, data = daughters)
+
+# Checking balance before and after matching:
+bal.tab(m.out, thresholds = c(m = 0.1), un = TRUE)
+
+```
+The covariates are only balanced on Christinaity and demvotes, and the rest of the covariates are not balanced
+
+
+#### STEP 2
+
+Then, do genetic matching. Use the same variables as in the regression above. Make sure to set `estimand = "ATT"`. What's your treatment effect? 
+
+Treatment effect of 0.64103 
+
+**Note**: *For replicability purposes, we need to choose a see for the `GenMatch()` function. However, setting seed for `GenMatch()` is different. The usual practice of typing `set.seed(some number)` before the GenMatch line doesn't ensure stochastic stability. To set seeds for `GenMatch`, you have to run `GenMatch()` including instructions for genoud within `GenMatch()`, e.g.: `GenMatch(Tr, X, unif.seed = 123, int.seed = 92485...)`. You can find info on these `.seed elements` in the documentation for `genoud()`. The special .seed elements should only be present in the `GenMatch()` line, not elsewhere (because nothing besides `GenMatch()` runs genoud.*
+
+**Note**: *When you use the `GenMatch()` function, wrap everything inside the following function `invisible(capture.output())`. This will reduce the unnecessary output produced from the GenMatch() function. For instance, you can say: `invisible(capture.output(genout_daughters <- GenMatch(...)))`*
+
+```{r}
+#covariates we are matching on 
+
+X3 <- cbind(daughters$dems, daughters$repubs, daughters$christian, daughters$age, daughters$srvlng, daughters$demvote)
+
+#treatment variable
+Tr3 <- daughters$hasgirls
+Y3 <- daughters$nowtot
+
+#genetic matching
+genout3 <- GenMatch(Tr=Tr3, X=X3, unif.seed = 123, int.seed = 92485, replace=TRUE, estimand="ATT", M=1,pop.size=430, max.generations=10,)
+
+#do matching with the weights from genetic matching
+mout3 <- Match(Tr=Tr3, X=X3, replace=TRUE, Weight.matrix=genout3)
+#check balance matching 
+mb3 <- MatchBalance(hasgirls ~ dems + repubs + christian + age + srvlng + demvote, data = daughters, match.out=mout3, nboots=500)
+
+#matching to get treatment effect
+match_d <- Match(Tr=Tr3, X=X3, Y=Y3, replace=TRUE, Weight.matrix=genout3)
+summary(match_d)
+```
+
+
+#### STEP 3
+
+Summarize (in 5-15 sentences) the genetic matching procedure and results, including what you matched on, what you balanced on, and what your balance results were. Provide output for MatchBalance() in the body of your submission. 
+
+Genetic matching is the iterative process of checking optimizing covariate balance by using genetic search algorithm. The algorithim uses generalized form of mahalanobis distance(MD) to weigh each varible according to its relative importance, to help achieve balance. Genetic matching improves overal balance by reducing minimizing the largest individual dicrepancy, ie improve the worst balance based on p value. After matching, we get optimal weights of covariates that we use in the matching. We matched on dems, repubs, christian , age , srvlng and demvote, and balanced on the same varibles. From the resulst, we were able to increase balance in all the covariates by using genetic matching.(results of matchbalance)
+
+
+#### STEP 4
+
+Is your treatment effect different from the one reported before matching? By how much? If your numbers are different, provide some explanation as to why the two numbers are different. If they're not, provide an explanation why they're not different.
+
+From the regression, we get a treatment effect of -0.4523, while after matching we get a treatment effect of 0.64103. treatment effect before matching is much lower than that of after matching. This is because in regression , the model is limited to the number of covraites we have supplied it, without considering any confounders and missing varibles. For example our regression does not include varibles such as race, medinc etc, and ther inclusion would dratically change our point estimate. Onaverage, our regression has a bigger bias. However, in causal inference we want an unbiased estimate, that does not keep shifting so muchh. In matching, we are able to minimize the effect of confounders and missing varibles, by comparing units that are most similar to each on indipendent varibles.
+
+#### STEP 5
+
+Change the parameters in your genetic matching algorithm to improve the balance of the covariates. Consider rerunning with M = 2 or 3 or more. Consider increasing other parameters in the `GenMatch()` function such as the number of generations and population size, caliper, etc. Try 10 different ways but don't report the results of the genetic matching weights or the balance in this document. Only report the treatment effect of your top 3 matches. For instance, run the `Match()` function three times for your top 3 genout objects. Make sure the summary reports the treatment effect estimate, the standard error, and the confidence interval. Do you see a large variation in your treatment effect between your top 3 models?
+
+**Note**: *For replicability purposes, we need to choose a see for the `GenMatch()` function. However, setting seed for `GenMatch()` is different. The usual practice of typing `set.seed(123)` before the GenMatch line doesn't ensure stochastic stability. To set seeds for `GenMatch`, you have to run `GenMatch()` including instructions for genoud within `GenMatch()`, e.g.: `GenMatch(Tr, X, unif.seed = 123, int.seed = 92485...)`. You can find info on these `.seed elements` in the documentation for `genoud()`. The special .seed elements should only be present in the `GenMatch()` line, not elsewhere (because nothing besides `GenMatch()` runs genoud.*
+
+**Note**: *When you use the `GenMatch()` function, wrap everything inside the following function `invisible(capture.output())`. This will reduce the unnecessary output produced with the GenMatch() function. For instance, you can say: `invisible(capture.output(genout_daughters <- GenMatch(...)))`*
+
+**Note**: *In the matching assignment, you may find that the Genetic Matching step takes a while, e.g., hours. If you have to reduce pop.size to e.g., 10 or 16 to ensure it stops after only an hour or two, that's fine. Running your computer for an hour or two is a good thing. Running it for a full day or more is unnecessary overkill (and if this is your situation, change hyperparameters like pop.size to reduce run-time). For example, we suggest you modify the pop.size (e.g., you can set it to 5!), max.generations (set it to 2!), and wait.generations (set it to 1!) and that should expedite things.*
+
+**Note**: *Can you set a caliper for one confounding variable, and not others (e.g., only set a caliper for "age")? No and yes. No, strictly speaking you can't. But yes, practically speaking you can, if you set other calipers (for the other confounders) that are so wide as to not induce any constraints. E.g., in GenMatch, and Match, you could set `caliper = c(1e16, 1e16, 0.5, 1e16)` and this would induce a certain meaningful caliper for the third confounder in X, without constraining the other confounders (because 1e16 implies a caliper that is so enormously wide that it does not, in practical terms, serve as a caliper at all).*
+
+```{r}
+X <- cbind(daughters$dems, daughters$repubs, daughters$christian, daughters$age, daughters$srvlng, daughters$demvote)
+
+
+Tr <- daughters$hasgirls
+
+#first variation of our model M=2
+#genetic matching 
+#genout2 <- GenMatch(Tr=Tr, X=X, unif.seed = 123, int.seed = 92485, replace=TRUE, estimand="ATT", M=2,pop.size=430, max.generations=10,)
+
+#do matching with the weights from genetic matching
+#mout2 <- Match(Tr=Tr, X=X, replace=TRUE, Weight.matrix=genout2)
+
+
+#summary(mout2)
+
+#second model  M=2, max.gen=20
+#genout3 <- GenMatch(Tr=Tr, X=X, unif.seed = 123, int.seed = 92485, replace=TRUE, estimand="ATT", M=2,pop.size=430, max.generations=20,)
+
+#do matching with the weights from genetic matching
+#mout3 <- Match(Tr=Tr, X=X, replace=TRUE, Weight.matrix=genout2)
+
+#summary(mout3)
+
+#third model pop.size=1000
+#genout4 <- GenMatch(Tr=Tr, X=X, unif.seed = 123, int.seed = 92485, replace=TRUE, estimand="ATT", M=1,pop.size=1000, max.generations=10)
+
+#do matching with the weights from genetic matching
+#mout4 <- Match(Tr=Tr, X=X, replace=TRUE, Weight.matrix=genout2)
+
+#summary(mout4)
+
+```
+#code put in comment format because the document was taking too long to knit. However, I ran the code before, and it worked
+
+From the results, there is no varition in the treatment effect as we vary the parameters in the genmatch funtion
+
+#### STEP 6
+
+Repeat everything you've done for Steps 1-2, including the regression, genetic algorithm, code and estimating the treatment effect EXCEPT this time change the definition of treatment to cover 2 girls or more, and change the definition of control to cover 2 boys or more. Exclude all observations that don't meet these requirements. Be sure to explain (in a sentence or two) what you're doing with your new treatment and control definitions. 
+
+**Note**: *Definition of the new treatment variable is as follows: Individuals in the treatment group should be having 2 or more girls and no boys, and individuals in the control group should be having 2 or more boys and no girls. What I had in mind was that such a situation increased the "dosage" of treatment vs. the "dosage" of control (and Rosenbaum alluded to this kind of observational design logic in one of the recently assigned articles). Note that you can't have the same units in the treatment group AND the control group -- we should all know by now that such a situation would be wrong.*
+
+
+```{r}
+head(daughters)
+#define treated Individuals to be having 2 or more girls and no boys
+treated <- filter(daughters, ngirls >= 2 & nboys == 0)
+
+#define control Individuals to be having 2 or more boys and no girls
+control <- filter(daughters, ngirls == 0 & nboys >= 2)
+
+#create a new dataframe with the new treated and control group
+new_daughters <- rbind(treated, control)
+
+#create treatment and control indentifiers, with 1 for treated, and 0 for control
+t <- rep(1, nrow(treated))
+c <- rep(0, nrow(control))
+treat <- c(t,c)
+
+#add the treatment indicator column to our dataset
+new_daughters <- cbind(new_daughters, treat)
+
+
+class(new_daughters$repubs)
+#regression to get treatment effect
+glm3 <- glm(nowtot ~ treat + dems + repubs + christian + age + srvlng + demvote, data = new_daughters)
+summary(glm3)
+
+
+#covariates we are matching on 
+
+Cov <- cbind(new_daughters$dems, new_daughters$repubs, new_daughters$christian, new_daughters$age, new_daughters$srvlng, new_daughters$demvote)
+
+#treatment variable
+Trr <- new_daughters$treat
+
+#outcome varible
+Y4 <- new_daughters$nowtot
+
+#genetic matching
+gen_daughters <- GenMatch(Tr=Trr, X=Cov, unif.seed = 123, int.seed = 92485, replace=TRUE, estimand="ATT", M=1,pop.size=91, max.generations=10,)
+
+#do matching with the weights from genetic matching
+mout_daughters <- Match(Tr=Trr, X=Cov, replace=TRUE, Weight.matrix=gen_daughters)
+
+#check balance matching 
+mb2 <- MatchBalance(treat ~ dems + repubs + christian + age + srvlng + demvote, data = new_daughters, match.out=mout_daughters, nboots=500)
+
+#get treatment effect after matching
+mout_daughters2 <- Match(Tr=Trr, X=Cov, Y=Y4, replace=TRUE, Weight.matrix=gen_daughters)
+
+#treatment effect
+summary(mout_daughters2)
+
+
+```
+
+Do your new definitions change anything?
+
+The new treatment changes alot of things. From the regression, we get a treatmentment effect of 12.2925, compared to a previous treatment effect of -0.4523. After genetic matching, we also see alot of impovement. The treatment effect with our new treatment is 13.298 , compared to the original treatment which had a treatment effect of 0.64103 . Our new definition of treatment of having moe than 2 girls and control of having no girls and mtwo or more boys exercebate the treatment effect. We see an overdose of treatment, and therefore a magnification of the treatment effect. 
+
+
+#### STEP 7
+
+It is NOT wise to match or balance on "totchi". What is the reason? Hint: You will have to look at what variables mean in the data set to be able to answer this question.
+
+
+## QUESTION 3: COPD
+
+Most causal studies on the health effects of smoking are observational studies (well, for very obvious reasons). In this exercise, we are specifically after answer the following question: Does smoking increase the risk of chronic obstructive pulmonary disease (COPD)? To learn more about the disease, read here: https://www.cdc.gov/copd/index.html
+
+We’ll use a sub-sample of the 2015 BRFSS survey (pronounced bur-fiss), which stands for Behavioral Risk Factor Surveillance System. The data is collected through a phone survey across American citizens regarding their health-related risk behaviors and chronic health conditions. Although, the entire survey has over 400,000 records and over 300 variables, we only sample 5,000 observations and 7 variables.
+
+Let's load the data first and take a look at the first few rows:
+
+```{r}
+brfss_data = read.csv("http://bit.ly/BRFSS_data") %>% 
+  clean_names()
+head(brfss_data)
+brfss = splitfactor(brfss_data, "sex", replace = FALSE, drop.first = TRUE)
+head(brfss)
+```
+
+A summary of the variables is as follows:
+
+- copd: Ever told you have chronic obstructive pulmonary disease (COPD)?
+- smoke: Adults who are current smokers (0 = no, 1 = yes)
+- race: Race group
+- age: age group
+- sex: gender
+- wtlbs: weight in pounds (lbs)
+- avedrnk2: During the past 30 days, when you drank, how many drinks did you drink on average?
+
+#### STEP 1
+
+Check the balance of covariates before matching using any method of your choice. You can look at balance tables, balance plots, or love plots from any package of your choice. Do you see a balance across the covariates?
+
+**Note**: *This is optional but you can use the `gridExtra` package and its `grid.arrange()` function to put all the 4 graphs in one 2 x 2 graph. Read more about the package and how to use it here: https://cran.r-project.org/web/packages/egg/vignettes/Ecosystem.html. Set `nrow = 2`.*
+
+```{r}
+
+bal.plot(brfss, treat = brfss$smoke, var.name = "sex_Male", which = "unadjusted", type = "hist")
+
+
+#balance on race
+bal.plot(brfss, 
+         treat = brfss$smoke, 
+         var.name = "race",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+
+#balance on age
+bal.plot(brfss, 
+         treat = brfss$smoke, 
+         var.name = "age",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+#balance on sex
+bal.plot(brfss, 
+         treat = brfss$smoke, 
+         var.name = "sex",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+#balance on wtlbs
+bal.plot(brfss, 
+         treat = brfss$smoke, 
+         var.name = "wtlbs",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+#balance on avedrnk2
+bal.plot(brfss, 
+         treat = brfss$smoke, 
+         var.name = "avedrnk2",
+         which = "unadjusted", 
+         type = "histogram", mirror = TRUE)
+```
+
+
+There is no balance on age there is balance for ages between 45-64, while the is no balnce in the ages uper or below that. For race, there balnce in the hispanic poluation, while there is no balance in the other races. There is perfect balance on sex. There is balance in weight and no balance in average drinks. 
+
+#### STEP 2
+
+Now, let's do Mahalanobis distance matching. Note that you can use the same old `Match()` function. Use all covariates in the data set to match on, however, make sure you convert all categorical variables into factor variables (Google to see how). We are going to specify `estimand = "ATT"` in the `Match()` function. What's the treatment effect after matching?
+
+Treatment effect of 0.086697 
+
+
+```{r}
+
+
+#convert character variables to factors
+names <- c("copd" ,"race", "age", "sex")
+brfss[,names] <- lapply(brfss[,names] , factor)
+str(brfss)
+class(brfss_data$sex)
+
+
+X5 <- cbind(brfss$race, brfss$age, brfss$sex, brfss$wtlbs, brfss$avedrnk2)
+
+Tr5 <- brfss$smoke
+
+Y5 <- brfss$copd
+
+#do matching with the weights from genetic matching
+mout_smoke <- Match(Tr=Tr5, X=X5, replace=TRUE, estimand = "ATT")
+
+mb_smoke <- MatchBalance(brfss$smoke ~ brfss$copd + brfss$race + brfss$age + brfss$sex, brfss$wtlbs + brfss$avedrnk2s, match.out=mout_smoke, nboots=100)
+
+#treatment effect
+mout_smoke_2 <- Match(Tr=Tr5, X=X5, Y=Y5, replace=TRUE, estimand = "ATT")
+summary(mout_smoke_2)
+```
+
+
+#### STEP 3
+
+Provide a few sentences talking about the number of treated units dropped, and a few more sentences talking about the balance obtained. 
+There 5000 observations, but only 762 were treated ie smoked. In the matchin exercise to get treatment effect for the treated units, our main focus is the treaded units. Therefore, we are only concerned about getting matched for our treated units only. In the end, we end up using about 2248 out of the 5000 units for our matching and drop the rest because they are too far. The 2248 units are the ones used in the weighed matching exercise to produce the result of 762 matched units. 
+
+
+#### STEP 4
+
+Now, let's do another Mahalanobis distance matching. Use all covariates in the data set in the propensity score estimation. However, this time make sure you specify `estimand = "ATE"` in the `Match()` function. What's the treatment effect after matching?
+
+After ATE matching, we get a treatment effect of 0.1324, which is bigger than the ATT of 0.086697 
+
+```{r}
+
+X5 <- cbind(brfss$race, brfss$age, brfss$sex, brfss$wtlbs, brfss$avedrnk2)
+
+Tr5 <- brfss$smoke
+
+Y5 <- brfss$copd
+
+
+
+#do matching with the weights from genetic matching
+mout_smoke_ate <- Match(Tr=Tr5, X=X5, replace=TRUE, estimand = "ATE")
+
+mb_smoke <- MatchBalance(brfss$smoke ~ brfss$copd + brfss$race + brfss$age + brfss$sex, brfss$wtlbs + brfss$avedrnk2s, match.out=mout_smoke_ate, nboots=100)
+
+#get treatment effect
+mout_smoke_ate_2 <- Match(Tr=Tr5, X=X5, Y=Y5, replace=TRUE, estimand = "ATE")
+summary(mout_smoke_ate_2)
+
+```
+
+#### STEP 5
+
+Are your answers in Steps 2 and 4 different? Why? What does the matching process do differently in each step? Which answer do you trust more?
+
+ATT and ATE are diffrent because of the units we are targeting to match on. In ATT we only want to match for the treated units, in ATE we match for both treated and control units. ATE is bigger than ATT from our resulst. I would ATT more because of the dicrepancies in the sample composition. We only have 762 treated units out of a sample of 5000 units. Given that we have very few treated units, matching for control units will be hard, and we might end up getting matched that are not very accurate for our control units. Therefore, ATE magnifies the treatment effect.
+
+
